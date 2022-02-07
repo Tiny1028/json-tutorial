@@ -21,6 +21,7 @@ typedef struct {
 }lept_context;
 
 static void* lept_context_push(lept_context* c, size_t size) {
+    /* 扩容，返回下一个插入字符的位置 */
     void* ret;
     assert(size > 0);
     if (c->top + size >= c->size) {
@@ -102,6 +103,29 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
             case '\0':
                 c->top = head;
                 return LEPT_PARSE_MISS_QUOTATION_MARK;
+            case '\\':
+                /* 读到单斜杠，说明有转义字符 */
+                switch(*p++){
+                    case '\\':
+                        PUTC(c, '\\'); break;
+                    case '\"':
+                        PUTC(c, '\"'); break;
+                    case '/':
+                        PUTC(c, '/'); break;
+                    case 'f':
+                        PUTC(c, '\f'); break;
+                    case 'b':
+                        PUTC(c, '\b'); break;
+                    case 'n':
+                        PUTC(c, '\n'); break;
+                    case 't':
+                        PUTC(c, '\t'); break;
+                    case 'r':
+                        PUTC(c, '\r'); break;
+                    default:
+                        c->top = head;
+                        return LEPT_PARSE_INVALID_STRING_ESCAPE;
+                }
             default:
                 PUTC(c, ch);
         }
@@ -154,11 +178,14 @@ lept_type lept_get_type(const lept_value* v) {
 
 int lept_get_boolean(const lept_value* v) {
     /* \TODO */
-    return 0;
+    assert(v != NULL && (v->type == LEPT_TRUE || v->type == LEPT_FALSE));
+    return v->type == LEPT_TRUE;
 }
 
 void lept_set_boolean(lept_value* v, int b) {
     /* \TODO */
+    lept_free(v);
+    v->type = b ? LEPT_TRUE : LEPT_FALSE;
 }
 
 double lept_get_number(const lept_value* v) {
@@ -168,6 +195,9 @@ double lept_get_number(const lept_value* v) {
 
 void lept_set_number(lept_value* v, double n) {
     /* \TODO */
+    lept_free(v);
+    v->type = LEPT_NUMBER;
+    v->u.n = n;
 }
 
 const char* lept_get_string(const lept_value* v) {
@@ -183,9 +213,9 @@ size_t lept_get_string_length(const lept_value* v) {
 void lept_set_string(lept_value* v, const char* s, size_t len) {
     assert(v != NULL && (s != NULL || len == 0));
     lept_free(v);
-    v->u.s.s = (char*)malloc(len + 1);
+    v->u.s.s = (char*) malloc(len + 1);
     memcpy(v->u.s.s, s, len);
-    v->u.s.s[len] = '\0';
+    v->u.s.s[len] = '\0'; /* 末尾添0 */
     v->u.s.len = len;
     v->type = LEPT_STRING;
 }
