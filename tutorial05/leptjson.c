@@ -200,7 +200,7 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
         lept_init(&e);
         
         if ((ret = lept_parse_value(c, &e)) != LEPT_PARSE_OK)
-            return ret;
+            break;
         memcpy(lept_context_push(c, sizeof(lept_value)), &e, sizeof(lept_value));
         size++;
         lept_parse_whitespace(c);/*每一次解析值后，跳过空白*/
@@ -211,14 +211,21 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
         else if (*c->json == ']') {
             c->json++;
             v->type = LEPT_ARRAY;
-            v->u.a.size = size;
+            v->u.a.size = size;/* size 为数组元素的个数*/
             size *= sizeof(lept_value);
             memcpy(v->u.a.e = (lept_value*)malloc(size), lept_context_pop(c, size), size);
             return LEPT_PARSE_OK;
         }
-        else
-            return LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+        else{
+            ret = LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+            break;
+        }
     }
+    size_t i;
+    for(i = 0; i < size; i++){
+        lept_free((lept_value *)lept_context_pop(c, sizeof (lept_value)));
+    }
+    return ret;
 }
 
 static int lept_parse_value(lept_context* c, lept_value* v) {
